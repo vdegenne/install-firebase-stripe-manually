@@ -27,6 +27,9 @@ import {
 } from './interfaces';
 import * as logs from './logs';
 import config from './config';
+import { config as dotenvConfig } from 'dotenv';
+
+dotenvConfig();
 
 const apiVersion = '2020-08-27';
 const stripe = new Stripe(config.stripeSecretKey, {
