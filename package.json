@@ -18,9 +18,5 @@
     "stripe": "8.191.0",
     "typescript": "^4.9.5"
   },
-  "prettier": {
-    "singleQuote": true,
-    "printWidth": 80
-  },
   "private": true
 }
