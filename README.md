@@ -1,7 +1,7 @@
 # install-firebase-stripe-manually
 
 This is a fork of [firestore-stripe-payments](https://github.com/stripe/stripe-firebase-extensions/tree/master/firestore-stripe-payments).
-It was modified so you can deploy the functions manually and have more control of the implementation.
+It was modified so you can deploy the functions manually and have more control over the implementation.
 
 Few things have been modified:
 
@@ -21,7 +21,7 @@ There is a `.env` file at the root where you can add your secrets.
 
 ### one-time payment custom claims
 
-to have more control over the custom claims, check the `fcc` branch of this repository.
+to have more control over the custom claims, check the `fcc` branch on this repository.
 
 
 # Stripe/Firebase snippets
@@ -52,17 +52,18 @@ const unsubscribe = onSnapshot(sessionRef, (snap) => {
 ```typescript
 import {getFunctions, httpsCallable} from 'firebase/functions';
 
-// User needs to be authenticated
-const createPortalLinkFunction = httpsCallable(functions, 'createPortalLink');
+const functions = getFunctions();
 
-createPortalLinkFunction({returnUrl: window.location.origin}).then(
+// User needs to be authenticated
+const createPortalLink = httpsCallable(functions, 'createPortalLink');
+
+createPortalLink({returnUrl: window.location.origin}).then(
   ({data}: {data: Stripe.BillingPortal.Session}) => {
     if (data.url) {
       window.open(data.url, '_blank');
     }
   }
 );
-
 ```
 
 ### Provide the receipt
