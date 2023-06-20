@@ -70,6 +70,7 @@ createPortalLink({returnUrl: window.location.origin}).then(
 
 ```typescript
 async function getReceiptUrl(uid: string) {
+	// This will just get the receipt of the last succeeded payment
 	const q = query(
 		collection(firestore, 'customers', uid, 'payments'),
 		where('status', '==', 'succeeded'),
