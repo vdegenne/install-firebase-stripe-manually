@@ -68,6 +68,24 @@ createPortalLink({returnUrl: window.location.origin}).then(
 
 ### Provide the receipt
 
+```typescript
+async function getReceiptUrl(uid: string) {
+	const q = query(
+		collection(firestore, 'customers', uid, 'payments'),
+		where('status', '==', 'succeeded'),
+		orderBy('created', 'desc'),
+		limit(1)
+	);
+	const paymentsSnap = await getDocs(q);
+	if (paymentsSnap.size !== 1) {
+		return;
+	}
+	const {charges} = paymentsSnap.docs[0].data() as Stripe.PaymentIntent;
+
+	return charges.data[0].receipt_url;
+}
+```
+
 ### Disconnect a user from a firebase function
 
 In case you want to logout a user if his subscription was revoked.
