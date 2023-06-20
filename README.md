@@ -27,7 +27,7 @@ to have more control over the custom claims, check the `fcc` branch on this repo
 
 - Products need to be created after the functions are installed.
 - When a user cancels a subscription (e.g. from portal) the subscription continues until the expiring date.
-- (does receipt function works for subscriptions???)
+- (does receipt function works for subscriptions???)For one-time payment you can [retrieve a receipt url](#Provide-the-receipt) for the purchase. However this function won't work for subscription, for subscription you can [use a billing portal](#open-a-billing-portal) 
 - When using `admin.auth().revokeRefreshTokens(uid);` in a function it does force the user to logout from front, however this doesn't delete the custom claims (they get retrieved when the user reconnects).
 
 # Stripe/Firebase snippets
