@@ -23,6 +23,12 @@ There is a `.env` file at the root where you can add your secrets.
 
 to have more control over the custom claims, check the `fcc` branch on this repository.
 
+# Interesting things to know about Stripe/Firebase relation
+
+- Products need to be created after the functions are installed.
+- When a user cancels a subscription (e.g. from portal) the subscription continues until the expiring date.
+- (does receipt function works for subscriptions???)
+- (when revoked do tokens re-update on next connect)
 
 # Stripe/Firebase snippets
 
