@@ -1,5 +1,6 @@
 {
   "name": "install-firebase-stripe-manually",
+  "type": "module",
   "engines": {
     "node": "14"
   },
