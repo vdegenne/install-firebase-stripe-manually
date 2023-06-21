@@ -7,7 +7,6 @@ import serviceAccount from './serviceAccountKey.json' assert {type: 'json'};
 
 initializeApp({
 	credential: cert(serviceAccount),
-	databaseURL: 'http://localhost:8080',
 });
 
 /**
