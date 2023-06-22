@@ -73,7 +73,7 @@ export interface Product {
   /**
    * The role that will be assigned to the user if they are subscribed to this plan.
    */
-  role: string | null;
+//   role: string | null;
   /**
    * A list of up to 8 URLs of images for this product, meant to be displayable to the customer.
    */
@@ -105,7 +105,7 @@ export interface Subscription {
     [name: string]: string;
   };
   stripeLink: string;
-  role: string | null;
+//   role: string | null;
   quantity: number;
   items: Stripe.SubscriptionItem[];
   /**
