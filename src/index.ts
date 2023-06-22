@@ -47,6 +47,33 @@ const eventChannel =
 		allowedEventTypes: process.env.EXT_SELECTED_EVENTS,
 	});
 
+// --- UPDATE START
+async function addCustomClaimsToUser(uid: string, customClaimsToAdd: {}) {
+	const {customClaims: userCustomClaims} = await admin.auth().getUser(uid);
+	return await admin
+		.auth()
+		.setCustomUserClaims(uid, {...userCustomClaims, ...customClaimsToAdd});
+}
+
+async function removeCustomClaimsFromUser(
+	uid: string,
+	customClaimsToRemove: {}
+) {
+	const {customClaims: userCustomClaims} = await admin.auth().getUser(uid);
+	for (const key of Object.keys(customClaimsToRemove)) {
+		delete userCustomClaims[key];
+	}
+	return await admin.auth().setCustomUserClaims(uid, userCustomClaims);
+}
+
+async function isKeyInDocument(
+	documentRef: admin.firestore.DocumentReference,
+	keyName: string
+) {
+	return !!(keyName in (await documentRef.get()).data());
+}
+// --- UPDATE END
+
 /**
  * Create a customer object in Stripe when a user is created.
  */
@@ -377,13 +404,29 @@ const prefixMetadata = (metadata: object) =>
 const createProductRecord = async (product: Stripe.Product): Promise<void> => {
 	const {firebaseRole, ...rawMetadata} = product.metadata;
 
+	// --- UPDATE START
+	let customClaims: {};
+	const fccKeys = Object.keys(rawMetadata).filter((key) =>
+		key.startsWith('fcc_')
+	);
+	for (const key of fccKeys) {
+		customClaims = {...customClaims, [key.substring(4)]: rawMetadata[key]};
+		delete rawMetadata[key];
+	}
+	// --- UPDATE END
+
 	const productData: Product = {
 		active: product.active,
 		name: product.name,
 		description: product.description,
-		role: firebaseRole ?? null,
+		// --- UPDATE START
+		// role: firebaseRole ?? null,
+		// --- UPDATE END
 		images: product.images,
 		metadata: product.metadata,
+		// --- UPDATE START
+		...(customClaims && {customClaims}),
+		// --- UPDATE END
 		tax_code: product.tax_code ?? null,
 		...prefixMetadata(rawMetadata),
 	};
@@ -469,9 +512,9 @@ const manageSubscriptionStatusChange = async (
 	customerId: string,
 	createAction: boolean
 ): Promise<void> => {
+	const firestore = admin.firestore();
 	// Get customer's UID from Firestore
-	const customersSnap = await admin
-		.firestore()
+	const customersSnap = await firestore
 		.collection(config.customersCollectionPath)
 		.where('stripeId', '==', customerId)
 		.get();
@@ -487,8 +530,7 @@ const manageSubscriptionStatusChange = async (
 	const prices = [];
 	for (const item of subscription.items.data) {
 		prices.push(
-			admin
-				.firestore()
+			firestore
 				.collection(config.productsCollectionPath)
 				.doc((item.price.product as Stripe.Product).id)
 				.collection('prices')
@@ -496,7 +538,12 @@ const manageSubscriptionStatusChange = async (
 		);
 	}
 	const product: Stripe.Product = price.product as Stripe.Product;
-	const role = product.metadata.firebaseRole ?? null;
+	// --- UPDATE START
+	const productRef = firestore
+		.collection(config.productsCollectionPath)
+		.doc(product.id);
+	// const role = product.metadata.firebaseRole ?? null;
+	// --- UPDATE END
 	// Get reference to subscription doc in Cloud Firestore.
 	const subsDbRef = customersSnap.docs[0].ref
 		.collection('subscriptions')
@@ -504,21 +551,13 @@ const manageSubscriptionStatusChange = async (
 	// Update with new Subscription status
 	const subscriptionData: Subscription = {
 		metadata: subscription.metadata,
-		role,
+		// role,
 		status: subscription.status,
 		stripeLink: `https://dashboard.stripe.com${
 			subscription.livemode ? '' : '/test'
 		}/subscriptions/${subscription.id}`,
-		product: admin
-			.firestore()
-			.collection(config.productsCollectionPath)
-			.doc(product.id),
-		price: admin
-			.firestore()
-			.collection(config.productsCollectionPath)
-			.doc(product.id)
-			.collection('prices')
-			.doc(price.id),
+		product: productRef,
+		price: productRef.collection('prices').doc(price.id),
 		prices,
 		quantity: subscription.items.data[0].quantity ?? null,
 		items: subscription.items.data,
@@ -551,25 +590,37 @@ const manageSubscriptionStatusChange = async (
 	logs.firestoreDocCreated('subscriptions', subscription.id);
 
 	// Update their custom claims
-	if (role) {
-		try {
-			// Get existing claims for the user
-			const {customClaims} = await admin.auth().getUser(uid);
-			// Set new role in custom claims as long as the subs status allows
-			if (['trialing', 'active'].includes(subscription.status)) {
-				logs.userCustomClaimSet(uid, 'stripeRole', role);
-				await admin
-					.auth()
-					.setCustomUserClaims(uid, {...customClaims, stripeRole: role});
-			} else {
-				logs.userCustomClaimSet(uid, 'stripeRole', 'null');
-				await admin
-					.auth()
-					.setCustomUserClaims(uid, {...customClaims, stripeRole: null});
+	const productSnap = await productRef.get();
+	if (productSnap.exists) {
+		const customClaims = productSnap.data().customClaims;
+		if (customClaims && Object.keys(customClaims).length > 0) {
+			try {
+				// Get existing claims for the user
+				// --- UPDATE START
+				// const {customClaims} = await admin.auth().getUser(uid);
+				// --- UPDATE END
+				// Set new role in custom claims as long as the subs status allows
+				if (['trialing', 'active'].includes(subscription.status)) {
+					// --- UPDATE START
+					// logs.userCustomClaimSet(uid, 'stripeRole', role);
+					// await admin
+					// 	.auth()
+					// 	.setCustomUserClaims(uid, {...customClaims, stripeRole: role});
+					addCustomClaimsToUser(uid, customClaims);
+					// --- UPDATE END
+				} else {
+					// --- UPDATE START
+					// logs.userCustomClaimSet(uid, 'stripeRole', 'null');
+					// await admin
+					// 	.auth()
+					// 	.setCustomUserClaims(uid, {...customClaims, stripeRole: null});
+					removeCustomClaimsFromUser(uid, customClaims);
+					// --- UPDATE END
+				}
+			} catch (error) {
+				// User has been deleted, simply return.
+				return;
 			}
-		} catch (error) {
-			// User has been deleted, simply return.
-			return;
 		}
 	}
 
@@ -649,19 +700,67 @@ const insertPaymentRecord = async (
 			checkoutSession.id
 		);
 		const prices = [];
+		const products = new Set();
+		// --- UPDATE START
+		let customClaims: {};
+		// --- UPDATE END
 		for (const item of lineItems.data) {
+			// --- UPDATE START
+			const productRef = admin
+				.firestore()
+				.collection(config.productsCollectionPath)
+				.doc(item.price.product as string);
+			if (!products.has(item.price.product)) {
+				const productSnap = await productRef.get();
+				if (productSnap.exists) {
+					const productCustomClaims = productSnap.data().customClaims;
+					console.log('fake key: ', productSnap.data().hahahahaha);
+					if (
+						productCustomClaims &&
+						Object.keys(productCustomClaims).length > 0
+					) {
+						customClaims = {...customClaims, ...productCustomClaims};
+						// if (!userCustomClaims) {
+						// 	const {customClaims} = await admin
+						// 		.auth()
+						// 		.getUser(customersSnap.docs[0].id);
+						// 	userCustomClaims = customClaims;
+						// }
+						// userCustomClaims = {...userCustomClaims, ...productCustomClaims};
+						// admin
+						// 	.auth()
+						// 	.setCustomUserClaims(customersSnap.docs[0].id, userCustomClaims);
+					}
+				}
+				products.add(item.price.product);
+			}
+			// --- UPDATE END
+
 			prices.push(
-				admin
-					.firestore()
-					.collection(config.productsCollectionPath)
-					.doc(item.price.product as string)
-					.collection('prices')
-					.doc(item.price.id)
+				// --- UPDATE START
+				productRef.collection('prices').doc(item.price.id)
+				// --- UPDATE END
+				// admin
+				// 	.firestore()
+				// 	.collection(config.productsCollectionPath)
+				// 	.doc(item.price.product as string)
+				// 	.collection('prices')
+				// 	.doc(item.price.id)
 			);
 		}
 		payment['prices'] = prices;
 		payment['items'] = lineItems.data;
+
+		// --- UPDATE START
+		// The reason why one-time payment doesn't set a stripeRole custom claim here
+		// is because a one-time payments can have line items (a set of products)
+		// Therefore it can't mix up different role.
+		if (customClaims && Object.keys(customClaims).length > 0) {
+			addCustomClaimsToUser(customersSnap.docs[0].id, customClaims);
+		}
+		// --- UPDATE END
 	}
+
 	// Write to invoice to a subcollection on the subscription doc.
 	await customersSnap.docs[0].ref
 		.collection('payments')
