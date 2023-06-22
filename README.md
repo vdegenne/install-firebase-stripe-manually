@@ -10,7 +10,9 @@ Few things have been modified:
 ```typescript
 export const handleWebhookEvents = functions.handler.https.onRequest(
 ```
+
 to
+
 ```typescript
 export const handleWebhookEvents = functions.https.onRequest(
 ```
@@ -27,7 +29,7 @@ to have more control over the custom claims, check the `fcc` branch on this repo
 
 - Products need to be created after the functions are installed.
 - When a user cancels a subscription (e.g. from portal) the subscription continues until the expiring date.
-- For one-time payment you can [retrieve a receipt url](#retrieve-a-payment-receipt-url) for the purchase. However this function won't work for subscription, for subscription you can [use a billing portal](#open-a-billing-portal) 
+- For one-time payment you can [retrieve a receipt url](#retrieve-a-payment-receipt-url) for the purchase. However this function won't work for subscription, for subscription you can [use a billing portal](#open-a-billing-portal)
 - When using `admin.auth().revokeRefreshTokens(uid);` in a function it does force the user to logout from front, however this doesn't delete the custom claims (they get retrieved when the user reconnects).
 
 # Stripe/Firebase snippets
@@ -36,21 +38,24 @@ to have more control over the custom claims, check the `fcc` branch on this repo
 
 ```typescript
 // TODO: check if a session is already opened
-const sessionRef = addDoc(collection(firestore, 'user', uid, 'checkout_sessions'), {
-  // mode: 'payment',
-  price: '...',
-  success_url: `${window.location.origin}#checkout_success`,
-  cancel_url: `${window.location.origin}#checkout_cancel`,
-  // billing_address_collection: 'auto'
-} as Stripe.Checkout.SessionCreateParams)
+const sessionRef = addDoc(
+	collection(firestore, 'user', uid, 'checkout_sessions'),
+	{
+		// mode: 'payment',
+		price: '...',
+		success_url: `${window.location.origin}#checkout_success`,
+		cancel_url: `${window.location.origin}#checkout_cancel`,
+		// billing_address_collection: 'auto'
+	} as Stripe.Checkout.SessionCreateParams
+);
 
 const unsubscribe = onSnapshot(sessionRef, (snap) => {
-  const {url} = snap.data();
-  if (url) {
-    unsubscribe();
-    window.location.href = url;
-  }
-})
+	const {url} = snap.data();
+	if (url) {
+		unsubscribe();
+		window.location.href = url;
+	}
+});
 ```
 
 ### Open a billing portal
@@ -64,11 +69,11 @@ const functions = getFunctions();
 const createPortalLink = httpsCallable(functions, 'createPortalLink');
 
 createPortalLink({returnUrl: window.location.origin}).then(
-  ({data}: {data: Stripe.BillingPortal.Session}) => {
-    if (data.url) {
-      window.open(data.url, '_blank');
-    }
-  }
+	({data}: {data: Stripe.BillingPortal.Session}) => {
+		if (data.url) {
+			window.open(data.url, '_blank');
+		}
+	}
 );
 ```
 
